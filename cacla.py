@@ -26,6 +26,9 @@ class CACLA:
         self.actor = None
         self.critic = None
 
+    def __call__(self, state):
+        return self.actor(state)
+
     def train(self, replay_buffer):
         states, actions, rewards , values, next_state_values = replay_buffer.sample()
         v_targets = rewards + self.gamma * next_state_values
@@ -39,10 +42,6 @@ class CACLA:
             actor_loss = self.actor.fit(states[index], actions[index], verbose=0).history["loss"][0]
 
         return actor_loss, critic_loss
-
-
-    def call(self, state):
-        return self.actor(state)
 
     def behavior_policy(self, state):
         action = self.actor(state)
