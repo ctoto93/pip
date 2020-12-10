@@ -6,7 +6,6 @@ class CACLA:
                 actor,
                 critic
                 action_space,
-                n_steps=5,
                 gamma=0.9,
                 exploration_noise_std=0.1):
 
