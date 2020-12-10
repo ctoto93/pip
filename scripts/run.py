@@ -5,10 +5,11 @@ import gym
 import envs
 import numpy as np
 from pip import PIP
+from cacla import CACLA
 
 def init_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--load", default="PIP")
+    parser.add_argument("--agent", default="PIP")
     parser.add_argument("--env", default="SparsePendulum-v0")
     parser.add_argument("--load_model", required=True)
     args = parser.parse_args()
@@ -17,8 +18,12 @@ def init_arguments():
 if __name__ == "__main__":
     args = init_arguments()
     env = gym.make(args.env)
-    agent = PIP.load(f"results/{args.load_model}")
-    agent.planner.env = env.unwrapped
+
+    if args.agent == "PIP":
+        agent = PIP.load(f"results/{args.load_model}")
+    elif args.agent == "CACLA":
+        agent = CACLA.load(f"results/{args.load_model}")
+
     env.reset()
     state = np.array([np.radians(180), 0])
     env.unwrapped.state = state
