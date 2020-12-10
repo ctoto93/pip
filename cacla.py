@@ -4,7 +4,7 @@ class CACLA:
 
     def __init__(self,
                 actor,
-                critic
+                critic,
                 action_space,
                 gamma=0.9,
                 exploration_noise_std=0.1):
