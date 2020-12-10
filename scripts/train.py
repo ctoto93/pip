@@ -32,7 +32,7 @@ def evaluate_agent(agent, env_name, seed, n_eval=1, transformer=None):
 	for _ in range(n_eval):
 		state, done = eval_env.reset(), False
 		while not done:
-			action = agent.select_action(state.reshape(1,-1))
+			action = agent(state.reshape(1,-1))
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 
@@ -146,6 +146,7 @@ if __name__ == "__main__":
 			actor,
 			critic,
 			gamma=args.gamma,
+
 		)
 
 	replay_buffer = ReplayBuffer(n_obs, n_action, max_size=args.buffer_size)
@@ -168,7 +169,7 @@ if __name__ == "__main__":
 			if t < args.start_episodes:
 				action = env.action_space.sample()
 			else:
-				action = agent.select_action(np.array(state))
+				action = agent.behavior_policy(np.array(state))
 
 			next_state, reward, done, _ = env.step(action)
 			done_bool = 0
