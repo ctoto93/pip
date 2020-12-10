@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 class CACLA:
 
@@ -33,13 +34,13 @@ class CACLA:
         states, actions, rewards , values, next_state_values = replay_buffer.sample()
         v_targets = rewards + self.gamma * next_state_values
 
-        critic_loss = self.critic.fit(states, v_targets, verbose=0).history["loss"][0]
+        critic_loss = self.critic.fit(x=states, y=v_targets, verbose=0).history["loss"][0]
 
         index = (next_state_values > values).reshape(-1) # only update action next state leads to good values
 
         actor_loss = None
         if index.any():
-            actor_loss = self.actor.fit(states[index], actions[index], verbose=0).history["loss"][0]
+            actor_loss = self.actor.fit(x=states[index], y=actions[index], verbose=0).history["loss"][0]
 
         return actor_loss, critic_loss
 

@@ -170,7 +170,7 @@ if __name__ == "__main__":
 			if t < args.start_episodes:
 				action = env.action_space.sample()
 			else:
-				action = agent.behavior_policy(np.array(state))
+				action = agent.behavior_policy(state.reshape(1,-1))
 
 			next_state, reward, done, _ = env.step(action)
 			done_bool = 0
@@ -203,4 +203,4 @@ if __name__ == "__main__":
 			agent.save(model_path)
 
 	plt.plot(train_rewards)
-	plt.savefig(f"results/evaluation.png")
+	plt.savefig(f"{dir}/evaluation.png")
