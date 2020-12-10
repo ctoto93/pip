@@ -12,7 +12,7 @@ class PIP:
     def __init__(self,
                 planner,
                 critic,
-                gamma=0.9):
+                gamma=0.95):
 
         self.planner = planner
         self.critic = critic
@@ -32,9 +32,9 @@ class PIP:
 
     def train(self, replay_buffer):
         state, action, next_state, reward, _ = replay_buffer.sample()
-        next_state_value = self.critic(next_state)
+        next_state_value = self.critic(next_state).numpy()
         v_target = reward + self.gamma * next_state_value
-        critic_loss = self.critic.fit(state, v_target, verbose=0).history["loss"][0]
+        critic_loss = self.critic.fit(x=state, y=v_target, verbose=0).history["loss"][0]
         return critic_loss
 
     def select_action(self, state):

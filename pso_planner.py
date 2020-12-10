@@ -25,6 +25,7 @@ class PSOPlanner:
         del state["world_model"]
         del state["history"]
         del state["critic"]
+        del state["optimizer"]
         return state
 
     def __setstate__(self, state):

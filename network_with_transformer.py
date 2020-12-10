@@ -7,5 +7,8 @@ class NetworkWithTransformer:
         input = self.transformer.transform(input)
         return self.model(input)
 
+    def fit(self, **kwargs):
+        return self.model.fit(**kwargs)
+
     def save(self, path):
         self.model.save(path)

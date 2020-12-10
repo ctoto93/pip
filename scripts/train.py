@@ -1,76 +1,101 @@
 import numpy as np
 import pandas as pd
-import torch
 import gym
 import argparse
 import os
-
-import utils
-import CACLA
-import PIP
-import PSOPlanner
 import envs
+import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from pathlib import Path
+from distutils.dir_util import copy_tree
 
-# Runs policy for X episodes and returns average reward
+from pip import PIP
+from pso_planner import PSOPlanner
+from world_model import WorldModel
+from network_with_transformer import NetworkWithTransformer
+from rbf_transformer import RadialBasisTransformer
+from replay_buffer import ReplayBuffer
+
+# Runs agent for X episodes and returns average reward
 # A fixed seed is used for the eval environment
-def eval_policy(policy, env_name, seed, n_eval=10):
+def evaluate_agent(agent, env_name, seed, n_eval=1, transformer=None):
 	eval_env = gym.make(env_name)
 	eval_env.seed(seed + 100)
 
 	avg_reward = 0.
 	for _ in range(n_eval):
 		state, done = eval_env.reset(), False
-        while not done:
-			action = policy.select_action(np.array(state))
+		while not done:
+			action = agent.select_action(state.reshape(1,-1))
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 
-	avg_reward /= eval_episodes
-	return avg_reward
+			avg_reward /= n_eval
+			return avg_reward
+
+def build_actor(n_obs, n_action, lr):
+	actor = Sequential()
+	actor.add(Dense(1024, activation='tanh', input_shape=(n_obs,)))
+	actor.add(Dense(512, activation='tanh'))
+	actor.add(Dense(256, activation='tanh'))
+	actor.add(Dense(n_action))
+	actor.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=lr))
+
+	return actor
+
+def build_critic(n_obs, lr):
+	critic = Sequential()
+	critic.add(Dense(1024, activation='relu', input_shape=(n_obs,)))
+	critic.add(Dense(512, activation='relu'))
+	critic.add(Dense(256, activation='relu'))
+	critic.add(Dense(1))
+	critic.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=lr))
+
+	return critic
 
 def init_arguments():
-    parser = argparse.ArgumentParser()
-	parser.add_argument("--policy", default="TD3")                  # Policy name (CACLA, TD3, PIP)
-	parser.add_argument("--env", default="HalfCheetah-v2")          # OpenAI gym environment name
-	parser.add_argument("--seed", default=0, type=int)              # Sets Gym, TF and Numpy seeds
-	parser.add_argument("--start_timesteps", default=25e3, type=int)# Time steps initial random policy is used
-	parser.add_argument("--eval_freq", default=1000, type=int)      # How often (time steps) we evaluate
-	parser.add_argument("--max_timesteps", default=50000, type=int) # Max time steps to run environment
-	parser.add_argument("--n_steps", default=50, type=int)   		# 1 episode how many steps in the environment
-	parser.add_argument("--expl_noise", default=0.5, type=float)    # CACLA and TD3 std of Gaussian exploration noise
-	parser.add_argument("--buffer_size", default=1e6, type=int)     # replay buffer size
-	parser.add_argument("--batch_size", default=256, type=int)      # Batch size for both actor and critic
-	parser.add_argument("--discount", default=0.95)                 # Discount factor
-	parser.add_argument("--tau", default=0.005, type=float)         # TD3 Target network update rate
-	parser.add_argument("--policy_noise", default=0.2, type=float)  # TD3 Noise added to target policy during critic update
-	parser.add_argument("--noise_clip", default=0.5, type=float)    # TD3 Range to clip target policy noise
-	parser.add_argument("--policy_freq", default=2, type=int)       # TD3 Frequency of delayed policy updates
-    parser.add_argument("--plan_length", default=5, type=int)       # PIP plan's length
-    parser.add_argument("--c1", default=1.4, type=float)            # PIP PSO c1 coef
-    parser.add_argument("--c2", default=1.4, type=float)            # PIP PSO c2 coef
-    parser.add_argument("--w", default=0.7, type=float)             # PIP PSO w coef
-    parser.add_argument("--neighbour", default=20, type=int)        # PIP PSO number of neighbour
-    parser.add_argument("--particles", default=50, type=int)        # PIP PSO number of particles
-	parser.add_argument("--save_model", action="store_true")        # Save model and optimizer parameters
-	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
-
-    args = parser.parse_args()
-    return args
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--agent", default="PIP")                          # agent name (CACLA, TD3, PIP)
+	parser.add_argument("--env", default="SparsePendulum-v0")              # OpenAI gym environment name
+	parser.add_argument("--seed", default=0, type=int)                     # Sets Gym, TF and Numpy seeds
+	parser.add_argument("--start_episodes", default=0, type=int)       # Episodes initial random agent is used
+	parser.add_argument("--eval_freq", default=1000, type=int)             # How often (time steps) we evaluate
+	parser.add_argument("--episodes", default=50000, type=int)        # Max time steps to run environment
+	parser.add_argument("--n_steps", default=50, type=int)   		       # 1 episode how many steps in the environment
+	parser.add_argument("--learning_rate", default=0.5, type=float)
+	parser.add_argument("--expl_noise", default=0.5, type=float)           # CACLA and TD3 std of Gaussian exploration noise
+	parser.add_argument("--buffer_size", default=1000000, type=int)            # replay buffer size
+	parser.add_argument("--batch_size", default=256, type=int)             # Batch size for both actor and critic
+	parser.add_argument("--gamma", default=0.95, type=float)                           # Discount factor
+	parser.add_argument("--tau", default=0.005, type=float)                # TD3 Target network update rate
+	parser.add_argument("--agent_noise", default=0.2, type=float)          # TD3 Noise added to target agent during critic update
+	parser.add_argument("--noise_clip", default=0.5, type=float)           # TD3 Range to clip target agent noise
+	parser.add_argument("--agent_freq", default=2, type=int)               # TD3 Frequency of delayed agent updates
+	parser.add_argument("--plan_length", default=5, type=int)              # PIP plan's length
+	parser.add_argument("--c1", default=1.4, type=float)                   # PIP PSO c1 coef
+	parser.add_argument("--c2", default=1.4, type=float)                   # PIP PSO c2 coef
+	parser.add_argument("--w", default=0.7, type=float)                    # PIP PSO w coef
+	parser.add_argument("--k", default=20, type=int)               		   # PIP PSO number of neighbour
+	parser.add_argument("--particles", default=50, type=int)               # PIP PSO number of particles
+	parser.add_argument("--iterations", default=3, type=int)               # PIP PSO number of iterations
+	parser.add_argument("--name", default="default", required=True)  	   # Save model and optimizer parameters
+	parser.add_argument("--world_model", default="pendulum")               # World model directory for pendulum env
+	parser.add_argument('--rbf', nargs='*', type=int)               	   # Radial basis units applied to networks
+	args = parser.parse_args()
+	return args
 
 if __name__ == "__main__":
-    args = init_arguments()
-	file_name = f"{args.policy}_{args.env}_expl_noise_{args.expl_noise}_policy_noise_{args.policy_noise}_noise_clip_{args.noise_clip}_tau_{args.tau}_steps_{args.n_steps}_buffer_{args.buffer_size}_seed_{args.seed}"
-	print("---------------------------------------")
-	print(f"Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}")
-	print("---------------------------------------")
+	args = init_arguments()
+	file_name = f"{args.agent}_{args.env}_expl_noise_{args.expl_noise}_agent_noise_{args.agent_noise}_noise_clip_{args.noise_clip}_tau_{args.tau}_steps_{args.n_steps}_buffer_{args.buffer_size}_seed_{args.seed}"
+	model_path = Path(f"./results/{args.name}")
 
-	if not os.path.exists("./results"):
-		os.makedirs("./results")
-
-	if args.save_model and not os.path.exists("./models"):
-		os.makedirs("./models")
+	if not model_path.exists():
+		os.makedirs(model_path)
 
 	env = gym.make(args.env)
 
@@ -79,39 +104,49 @@ if __name__ == "__main__":
 	tf.random.set_seed(args.seed)
 	np.random.seed(args.seed)
 
-	state_dim = env.observation_space.shape[0]
-	action_dim = env.action_space.shape[0]
+	transformer = None
+	if any(args.rbf):
+		transformer = RadialBasisTransformer(env.observation_space, args.rbf)
+		with open(f"{model_path}/transformer.pkl", "wb") as f:
+			pickle.dump(transformer, f)
+
+	n_obs = transformer.rbf_dim if transformer else env.observation_space.shape[0]
+	n_action = env.action_space.shape[0]
 	max_action = float(env.action_space.high[0])
 
-	kwargs = {
-		"state_dim": state_dim,
-		"action_dim": action_dim,
-		"max_action": max_action,
-		"discount": args.discount,
-		"tau": args.tau,
-	}
+	critic = build_critic(n_obs, args.learning_rate)
+	if transformer:
+		critic = NetworkWithTransformer(critic, transformer)
 
-	# Initialize policy
-	if args.policy == "TD3":
-		# Target policy smoothing is scaled wrt the action scale
-		kwargs["policy_noise"] = args.policy_noise * max_action
-		kwargs["noise_clip"] = args.noise_clip * max_action
-		kwargs["policy_freq"] = args.policy_freq
-		policy = TD3.TD3(**kwargs)
-	elif args.policy == "OurDDPG":
-		policy = OurDDPG.DDPG(**kwargs)
-	elif args.policy == "DDPG":
-		policy = DDPG.DDPG(**kwargs)
+	# Initialize agent
+	if args.agent == "PIP":
+		copy_tree(f"world_models/{args.world_model}", f"{model_path}/world_model")
+		world_model = WorldModel.load(model_path)
+		planner = PSOPlanner(
+			env.action_space,
+			world_model,
+			critic,
+			length=args.plan_length,
+			gamma=args.gamma,
+			particles=args.particles,
+			iterations=args.iterations,
+			c1=args.c1,
+			c2=args.c2,
+			w=args.w,
+			k=args.k,
+		)
 
-	if args.load_model != "":
-		policy_file = file_name if args.load_model == "default" else args.load_model
-		policy.load(f"./models/{policy_file}")
+		agent = PIP(planner, critic, gamma=args.gamma)
 
-	replay_buffer = ReplayBuffer(state_dim, action_dim, max_size=args.buffer_size)
+	elif args.agent == "OurDDPG":
+		agent = OurDDPG.DDPG(**kwargs)
+	elif args.agent == "DDPG":
+		agent = DDPG.DDPG(**kwargs)
 
-	# Evaluate untrained policy
+	replay_buffer = ReplayBuffer(n_obs, n_action, max_size=args.buffer_size)
 
-	evaluations = [eval_policy(policy, args.env, args.seed, n_steps=args.n_steps)]
+	# Evaluate untrained agent
+	evaluations = [evaluate_agent(agent, args.env, args.seed, transformer=transformer)]
 	train_rewards = []
 
 	state, done = env.reset(), False
@@ -120,37 +155,45 @@ if __name__ == "__main__":
 	episode_num = 0
 	df_eval = pd.DataFrame(columns =  ["episode", "cum_rewards", "eval"])
 
-	for t in tqdm(range(args.max_timesteps)):
+	for t in tqdm(range(args.episodes)):
 		state, done = env.reset(), False
 		episode_reward = 0
 
-        while not done:
-			if t < args.start_timesteps:
+		while not done:
+			if t < args.start_episodes:
 				action = env.action_space.sample()
 			else:
-				action = policy.select_action(np.array(state))
+				action = agent.select_action(np.array(state))
 
 			next_state, reward, done, _ = env.step(action)
 			done_bool = 0
 
-			replay_buffer.add(state, action, next_state, reward)
+			#break if
+			replay_buffer.add(
+				transformer.transform(state.reshape(1,-1)),
+				action,
+				transformer.transform(next_state.reshape(1,-1)),
+				reward,
+				done
+			)
 
 			state = next_state
 			episode_reward += reward
 
 		train_rewards.append(episode_reward)
-		policy.train(replay_buffer, args.batch_size)
+		agent.train(replay_buffer)
 
 		# Evaluate and save data frames
 		if (t + 1) % args.eval_freq == 0:
-			reward = eval_policy(policy, args.env, args.seed, args.n_steps)
+			reward = evaluate_agent(agent, args.env, args.seed, args.n_steps, transformer=transformer)
 			df_eval = df_eval.append({"episode": t+1, "cum_rewards": reward}, ignore_index=True)
-			df_eval.to_pickle(f"./results/{file_name}_df_eval.pkl")
+			df_eval.to_pickle(f"{model_path}/df_eval.pkl")
 
 			df_train = pd.DataFrame()
 			df_train["episode"] = np.arange(len(train_rewards))
 			df_train["train_cum_reward"] = train_rewards
-			df_train.to_pickle(f"./results/{file_name}_df_train.pkl")
+			df_train.to_pickle(f"{model_path}/df_train.pkl")
+			agent.save(model_path)
 
 	plt.plot(train_rewards)
 	plt.savefig(f"results/{file_name}.png")
