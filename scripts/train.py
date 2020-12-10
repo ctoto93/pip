@@ -145,8 +145,9 @@ if __name__ == "__main__":
 		agent = CACLA(
 			actor,
 			critic,
+			env.action_space,
 			gamma=args.gamma,
-
+			exploration_noise_std=args.expl_noise
 		)
 
 	replay_buffer = ReplayBuffer(n_obs, n_action, max_size=args.buffer_size)
