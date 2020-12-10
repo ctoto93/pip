@@ -203,4 +203,4 @@ if __name__ == "__main__":
 			agent.save(model_path)
 
 	plt.plot(train_rewards)
-	plt.savefig(f"{dir}/evaluation.png")
+	plt.savefig(f"{model_path}/evaluation.png")
