@@ -6,8 +6,8 @@ from world_model import WorldModel
 import pickle
 
 class PSOPlanner:
-    def __init__(self, env, world_model, critic, particles=50, iterations=3, length=5 , gamma=0.95, c1=1.4, c2=1.4, w=0.7, k=20):
-        self.env = env
+    def __init__(self, action_space, world_model, critic, particles=50, iterations=3, length=5 , gamma=0.95, c1=1.4, c2=1.4, w=0.7, k=20):
+        self.action_space = action_space
         self.world_model = world_model
         self.critic = critic
         self.particles = particles
@@ -25,12 +25,10 @@ class PSOPlanner:
         del state["world_model"]
         del state["history"]
         del state["critic"]
-        del state["env"]
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.env = None
         self.world_model = None
         self.critic = None
         self.history = []
@@ -59,15 +57,15 @@ class PSOPlanner:
         return optimizer
 
     def bounds(self):
-        low = self.env.action_space.low
-        high = self.env.action_space.high
+        low = self.action_space.low
+        high = self.action_space.high
 
         min_bound = np.tile(low, self.length)
         max_bound = np.tile(high, self.length)
         return (min_bound, max_bound)
 
     def action_length(self):
-        return self.env.action_space.shape[0]
+        return self.action_space.shape[0]
 
     def dimensions(self):
         return self.length * self.action_length()
@@ -79,7 +77,7 @@ class PSOPlanner:
                                     iters=self.iterations,
                                     verbose=False)
         self.history.append({
-            "state": self.env.state,
+            "state": state,
             "cost_history": self.optimizer.cost_history,
             "plan": best_plan
         })
