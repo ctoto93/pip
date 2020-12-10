@@ -1,23 +1,31 @@
 import numpy as np
 
-class CACLA(Agent):
+class CACLA:
 
     def __init__(self,
-                env,
                 actor,
-                critic,
+                critic
+                action_space,
                 n_steps=5,
                 gamma=0.9,
-                exploration_noise_std=0.1,
-                target_noise_clip=0.5):
+                exploration_noise_std=0.1):
 
-        self.env = env
         self.actor = actor # seq model
         self.critic = critic # seq model
+        self.action_space = action_space
         self.exploration_noise_std = exploration_noise_std
         self.gamma = gamma
-        self.target_noise_clip = target_noise_clip
-        self.runner = Runner(env, self, n_steps, gamma)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["actor"]
+        del state["critic"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.actor = None
+        self.critic = None
 
     def train(self, replay_buffer):
         states, actions, rewards , values, next_state_values = replay_buffer.sample()
@@ -37,14 +45,38 @@ class CACLA(Agent):
     def call(self, state):
         return self.actor(state)
 
-    def select_action(self, state):
+    def behavior_policy(self, state):
         action = self.actor(state)
         noise = np.random.normal(scale=self.exploration_noise_std, size=(action.shape))
         action += noise
-        action = np.clip(action, self.env.action_space.low, self.env.action_space.high)
+        action = np.clip(action, self.action_space.low, self.action_space.high)
 
         return action
 
     def save(self, dir="./logs"):
-        self.actor.save("{}/actor_model_eps_{}.h5".format(dir, self.current_episode))
-        self.critic.save("{}/critic_model_eps_{}.h5".format(dir, self.current_episode))
+        with open(f"{dir}/agent.pkl", 'wb') as f:
+            pickle.dump(self, f)
+
+        self.actor.save(f"{dir}/actor.h5")
+        self.critic.save(f"{dir}/critic.h5")
+
+    @staticmethod
+    def load(dir):
+        with open(f"{dir}/agent.pkl", 'rb') as f:
+            cacla = pickle.load(f)
+
+        actor = tf.keras.models.load_model(f"{dir}/actor.h5")
+        critic = tf.keras.models.load_model(f"{dir}/critic.h5")
+
+        transformer = None
+        transformer_path = Path(f"{dir}/transformer.pkl")
+        if transformer_path.exists():
+            with open(transformer_path, 'rb') as fp:
+                transformer = pickle.load(fp)
+            actor = NetworkWithTransformer(actor, transformer)
+            critic = NetworkWithTransformer(critic, transformer)
+
+        cacla.actor = actor
+        cacla.critic = critic
+
+        return cacla

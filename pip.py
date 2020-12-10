@@ -28,7 +28,7 @@ class PIP:
         self.critic = None
 
     def __call__(self, state):
-        return self.select_action(state)
+        return self.behavior_policy(state)
 
     def train(self, replay_buffer):
         state, action, next_state, reward, _ = replay_buffer.sample()
@@ -37,7 +37,7 @@ class PIP:
         critic_loss = self.critic.fit(x=state, y=v_target, verbose=0).history["loss"][0]
         return critic_loss
 
-    def select_action(self, state):
+    def behavior_policy(self, state):
         plan = self.planner.generate(state)
         return plan[:1].reshape(1,-1)
 

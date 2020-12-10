@@ -14,6 +14,7 @@ from tensorflow.keras.optimizers import Adam
 from pathlib import Path
 from distutils.dir_util import copy_tree
 
+from cacla import CACLA
 from pip import PIP
 from pso_planner import PSOPlanner
 from world_model import WorldModel
@@ -137,11 +138,15 @@ if __name__ == "__main__":
 		)
 
 		agent = PIP(planner, critic, gamma=args.gamma)
-
-	elif args.agent == "OurDDPG":
-		agent = OurDDPG.DDPG(**kwargs)
-	elif args.agent == "DDPG":
-		agent = DDPG.DDPG(**kwargs)
+	elif args.agent == "CACLA":
+		actor = build_actor(n_obs, n_action, args.learning_rate)
+		if transformer:
+			actor = NetworkWithTransformer(actor, transformer)
+		agent = CACLA(
+			actor,
+			critic,
+			gamma=args.gamma,
+		)
 
 	replay_buffer = ReplayBuffer(n_obs, n_action, max_size=args.buffer_size)
 
