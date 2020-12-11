@@ -16,19 +16,19 @@ class WorldModel:
         return self.to_actual_state(neural_state)
 
     def to_neural_input(self, state, action):
-        state = tf.convert_to_tensor(state, dtype="float32")
-        action = tf.convert_to_tensor(action, dtype="float32")
-        input = tf.concat([state, action], axis=1)
-        input -= tf.convert_to_tensor(self.scaler.mean_, dtype="float32")
-        input /= tf.convert_to_tensor(self.scaler.scale_, dtype="float32")
-
+        input = np.concatenate((state, action), axis=1)
+        input = self.scaler.transform(input)
         return input
 
     def to_actual_state(self, neuron_state):
-        temp = neuron_state
-        temp *= tf.convert_to_tensor(self.scaler.scale_[:-1], dtype="float32")
-        temp += tf.convert_to_tensor(self.scaler.mean_[:-1], dtype="float32")
-        return temp
+        n_particle, n_obs = neuron_state.shape
+        n_action = self.scaler.scale_.shape[0] - n_obs
+
+        dummy_action = np.zeros((n_particle, n_action))
+        scaler_in = np.hstack((neuron_state, dummy_action))
+        scaler_out = self.scaler.inverse_transform(scaler_in)
+        state = scaler_out[:,:n_obs]
+        return state
 
     def save(self, dir):
         self.model.save(f"{dir}/world_model/model.h5")

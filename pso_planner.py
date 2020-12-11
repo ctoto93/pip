@@ -98,7 +98,7 @@ class PSOPlanner:
             from_idx = i * self.action_length()
             to_idx = (i+1) * self.action_length()
             action = x[:,from_idx:to_idx].reshape(self.particles, self.action_length())
-            state = self.world_model(state, action).numpy()
+            state = self.world_model(state, action)
             value += self.critic(state)
 
         cost = value.numpy().reshape(-1) * -1 # min the cost instead of max rewards since pyswarms can only minimize
