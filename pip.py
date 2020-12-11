@@ -28,6 +28,8 @@ class PIP:
         self.critic = None
 
     def __call__(self, state):
+        """ PIP's target and behavior policy are the same"""
+
         return self.behavior_policy(state)
 
     def train(self, replay_buffer):

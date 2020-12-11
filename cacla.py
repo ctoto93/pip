@@ -31,6 +31,8 @@ class CACLA:
         self.critic = None
 
     def __call__(self, state):
+        """ Called during evaluation. It fully exploits the policy."""
+        
         return self.actor(state)
 
     def train(self, replay_buffer):
@@ -48,6 +50,8 @@ class CACLA:
         return actor_loss, critic_loss
 
     def behavior_policy(self, state):
+        """ Policy used for exploration. CACLA adds a gaussian noise as its exploration method."""
+
         action = self.actor(state)
         noise = np.random.normal(scale=self.exploration_noise_std, size=(action.shape))
         action += noise
