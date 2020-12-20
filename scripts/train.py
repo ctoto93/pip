@@ -41,8 +41,9 @@ def evaluate_agent(agent, env_name, seed, n_eval=1, transformer=None):
 
 def build_actor(n_obs, n_action, lr):
 	actor = Sequential()
-	actor.add(Dense(400, activation='tanh', input_shape=(n_obs,)))
-	actor.add(Dense(300, activation='tanh'))
+	actor.add(Dense(64, activation='tanh', input_shape=(n_obs,)))
+	actor.add(Dense(64, activation='tanh'))
+	actor.add(Dense(32, activation='tanh'))
 	actor.add(Dense(n_action))
 	actor.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=lr))
 
@@ -50,8 +51,9 @@ def build_actor(n_obs, n_action, lr):
 
 def build_critic(n_obs, lr):
 	critic = Sequential()
-	critic.add(Dense(400, activation='relu', input_shape=(n_obs,)))
-	critic.add(Dense(300, activation='relu'))
+	critic.add(Dense(64, activation='relu', input_shape=(n_obs,)))
+	critic.add(Dense(64, activation='relu'))
+	critic.add(Dense(32, activation='relu'))
 	critic.add(Dense(1))
 	critic.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=lr))
 
