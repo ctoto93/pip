@@ -32,7 +32,7 @@ def evaluate_agent(agent, env_name, seed, n_eval=1, transformer=None):
 	for _ in range(n_eval):
 		state, done = eval_env.reset(), False
 		while not done:
-			action = agent(state.reshape(1,-1))
+			action = agent(state.reshape(1,-1)).numpy().reshape(-1)
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 
@@ -106,7 +106,8 @@ if __name__ == "__main__":
 	np.random.seed(args.seed)
 
 	transformer = None
-	if any(args.rbf):
+
+	if args.rbf:
 		transformer = RadialBasisTransformer(env.observation_space, args.rbf)
 		with open(f"{model_path}/transformer.pkl", "wb") as f:
 			pickle.dump(transformer, f)
@@ -172,17 +173,25 @@ if __name__ == "__main__":
 			else:
 				action = agent.behavior_policy(state.reshape(1,-1))
 
-			next_state, reward, done, _ = env.step(action)
+			next_state, reward, done, _ = env.step(action.reshape(-1))
 			done_bool = 0
 
-			#break if
-			replay_buffer.add(
-				transformer.transform(state.reshape(1,-1)),
-				action,
-				transformer.transform(next_state.reshape(1,-1)),
-				reward,
-				done
-			)
+			if transformer:
+				replay_buffer.add(
+					transformer.transform(state.reshape(1,-1)),
+					action,
+					transformer.transform(next_state.reshape(1,-1)),
+					reward,
+					done
+				)
+			else:
+				replay_buffer.add(
+					state.reshape(1,-1),
+					action,
+					next_state.reshape(1,-1),
+					reward,
+					done
+				)
 
 			state = next_state
 			episode_reward += reward
