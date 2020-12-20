@@ -1,11 +1,19 @@
 import numpy as np
+import csv
 
 class ReplayBuffer:
-    def __init__(self, state_dim, action_dim, max_size=int(1e6), batch_size=256):
+    def __init__(self, state_dim, action_dim, max_size=int(1e6), batch_size=256, dump_dir=None):
         self.max_size = max_size
         self.batch_size = batch_size
         self.ptr = 0
         self.size = 0
+        self.dump_dir = dump_dir
+
+        if dump_dir:
+            with open(f"{self.dump_dir}/replay_buffer.csv", mode='w') as csv_file:
+                header = ['state', 'action', 'next_state', 'reward', 'done']
+                writer = csv.writer(csv_file)
+                writer.writerow(header)
 
         self.state = np.zeros((max_size, state_dim))
         self.action = np.zeros((max_size, action_dim))
@@ -19,6 +27,11 @@ class ReplayBuffer:
         self.next_state[self.ptr] = next_state
         self.reward[self.ptr] = reward
         self.not_done[self.ptr] = 1. - done
+
+        if self.dump_dir:
+            with open(f"{self.dump_dir}/replay_buffer.csv", mode='a') as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow([state.reshape(-1), action.reshape(-1), next_state.reshape(-1), reward, done])
 
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)

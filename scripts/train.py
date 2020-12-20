@@ -72,6 +72,7 @@ def init_arguments():
 	parser.add_argument("--expl_noise", default=0.5, type=float)           # CACLA and TD3 std of Gaussian exploration noise
 	parser.add_argument("--buffer_size", default=1000000, type=int)            # replay buffer size
 	parser.add_argument("--batch_size", default=256, type=int)             # Batch size for both actor and critic
+	parser.add_argument("--save_replay", action="store_true")             # Batch size for both actor and critic
 	parser.add_argument("--gamma", default=0.95, type=float)                           # Discount factor
 	parser.add_argument("--tau", default=0.005, type=float)                # TD3 Target network update rate
 	parser.add_argument("--agent_noise", default=0.2, type=float)          # TD3 Noise added to target agent during critic update
@@ -151,7 +152,8 @@ if __name__ == "__main__":
 			exploration_noise_std=args.expl_noise
 		)
 
-	replay_buffer = ReplayBuffer(n_obs, n_action, max_size=args.buffer_size)
+	dump_dir = model_path if args.save_replay else None
+	replay_buffer = ReplayBuffer(n_obs, n_action, max_size=args.buffer_size, dump_dir=dump_dir)
 
 	# Evaluate untrained agent
 	evaluations = [evaluate_agent(agent, args.env, args.seed, transformer=transformer)]
