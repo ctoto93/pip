@@ -9,12 +9,6 @@ class ReplayBuffer:
         self.size = 0
         self.dump_dir = dump_dir
 
-        if dump_dir:
-            with open(f"{self.dump_dir}/replay_buffer.csv", mode='w') as csv_file:
-                header = ['state', 'action', 'next_state', 'reward', 'done']
-                writer = csv.writer(csv_file)
-                writer.writerow(header)
-
         self.state = np.zeros((max_size, state_dim))
         self.action = np.zeros((max_size, action_dim))
         self.next_state = np.zeros((max_size, state_dim))
@@ -31,7 +25,8 @@ class ReplayBuffer:
         if self.dump_dir:
             with open(f"{self.dump_dir}/replay_buffer.csv", mode='a') as csv_file:
                 writer = csv.writer(csv_file)
-                writer.writerow([state.reshape(-1), action.reshape(-1), next_state.reshape(-1), reward, done])
+                row = np.concatenate((state.reshape(-1), action.reshape(-1), next_state.reshape(-1), reward, done), axis=None)
+                writer.writerow(row)
 
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
