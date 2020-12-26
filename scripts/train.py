@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import gym
 import argparse
 import os
@@ -21,6 +22,7 @@ from world_model import WorldModel
 from network_with_transformer import NetworkWithTransformer
 from rbf_transformer import RadialBasisTransformer
 from replay_buffer import ReplayBuffer
+
 
 # Runs agent for X episodes and returns average reward
 # A fixed seed is used for the eval environment
@@ -48,6 +50,18 @@ def build_actor(n_obs, n_action, lr):
 	actor.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=lr))
 
 	return actor
+
+def plot_evaluation(df_eval, window, path):
+	fig, ax = plt.subplots(1, figsize=(15,8))
+	df_eval = df_eval.astype("float32")
+	sns.lineplot(x="episode", y="cum_rewards", data=df_eval, ax=ax)
+	fig.savefig("{}/eval.png".format(path))
+
+def plot_train(df_train, window, path):
+	fig, ax = plt.subplots(1, figsize=(15,8))
+	df_train["train cum reward average"] = df_train.train_cum_reward.rolling(window=window).mean()
+	sns.lineplot(x="episode", y="train cum reward average", data=df_train, ax=ax)
+	fig.savefig("{}/train_cum_reward.png".format(path))
 
 def build_critic(n_obs, lr):
 	critic = Sequential()
@@ -213,5 +227,5 @@ if __name__ == "__main__":
 			df_train.to_pickle(f"{model_path}/df_train.pkl")
 			agent.save(model_path)
 
-	plt.plot(train_rewards)
-	plt.savefig(f"{model_path}/evaluation.png")
+			plot_evaluation(df_eval, args.eval_freq, model_path)
+			plot_train(df_train, args.eval_freq, model_path)
