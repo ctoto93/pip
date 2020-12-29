@@ -34,7 +34,12 @@ def evaluate_agent(agent, env_name, seed, n_eval=1, transformer=None):
 	for _ in range(n_eval):
 		state, done = eval_env.reset(), False
 		while not done:
-			action = agent(state.reshape(1,-1)).numpy().reshape(-1)
+			action = agent(state.reshape(1,-1))
+			if tf.is_tensor(action):
+				action = action.numpy()
+
+			action = action.reshape(-1)
+
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 
