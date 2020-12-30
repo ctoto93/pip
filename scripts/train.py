@@ -20,7 +20,7 @@ from pip import PIP
 from pso_planner import PSOPlanner
 from world_model import WorldModel
 from network_with_transformer import NetworkWithTransformer
-from rbf_transformer import RadialBasisTransformer
+from rbf_transformer import RadialBasisTransformer, RadialBasisTransformerConcat
 from replay_buffer import ReplayBuffer
 
 
@@ -107,8 +107,14 @@ def init_arguments():
 	parser.add_argument("--name", default="default", required=True)  	   # Save model and optimizer parameters
 	parser.add_argument("--world_model", default="pendulum")               # World model directory for pendulum env
 	parser.add_argument('--rbf', nargs='*', type=int)               	   # Radial basis units applied to networks
+	parser.add_argument('--rbf_space', nargs='*', type=int)
+	parser.add_argument('--rbf_concatenate', default=False, type=bool)
+
 	args = parser.parse_args()
 	return args
+
+def create_rbf_space(val, shape):
+	return gym.spaces.Box(-val, val, shape, dtype=np.float32)
 
 if __name__ == "__main__":
 	args = init_arguments()
@@ -119,16 +125,25 @@ if __name__ == "__main__":
 		os.makedirs(model_path)
 
 	env = gym.make(args.env)
-
 	# Set seeds
 	env.seed(args.seed)
 	tf.random.set_seed(args.seed)
 	np.random.seed(args.seed)
 
 	transformer = None
-
 	if args.rbf:
-		transformer = RadialBasisTransformer(env.observation_space, args.rbf)
+		rbf_space =  env.observation_space
+		if args.rbf_space:
+			rbf_space = create_rbf_space(
+				np.array(args.rbf_space),
+				env.observation_space.shape
+			)
+
+		if args.rbf_concatenate:
+			transformer = RadialBasisTransformerConcat(rbf_space, args.rbf)
+		else:
+			transformer = RadialBasisTransformer(rbf_space, args.rbf)
+
 		with open(f"{model_path}/transformer.pkl", "wb") as f:
 			pickle.dump(transformer, f)
 
