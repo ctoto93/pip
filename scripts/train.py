@@ -22,6 +22,7 @@ from world_model import WorldModel
 from network_with_transformer import NetworkWithTransformer
 from rbf_transformer import RadialBasisTransformer, RadialBasisTransformerConcat
 from replay_buffer import ReplayBuffer
+from plotter.rbf_pendulum import visualize_pendulum
 
 
 # Runs agent for X episodes and returns average reward
@@ -245,7 +246,10 @@ if __name__ == "__main__":
 			df_train["episode"] = np.arange(len(train_rewards))
 			df_train["train_cum_reward"] = train_rewards
 			df_train.to_pickle(f"{model_path}/df_train.pkl")
-			agent.save(model_path)
+			agent.save(model_path, eps=t)
 
 			plot_evaluation(df_eval, args.eval_freq, model_path)
 			plot_train(df_train, args.eval_freq, model_path)
+
+	if args.world_model == "pendulum":
+		visualize_pendulum(env, df_train["train_cum_reward"].max(), model_path, transformer)

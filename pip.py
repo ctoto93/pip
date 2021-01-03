@@ -43,8 +43,9 @@ class PIP:
         plan = self.planner.generate(state)
         return plan[:1].reshape(1,-1)
 
-    def save(self, dir="./results"):
-        self.critic.save(f"{dir}/critic.h5")
+    def save(self, dir="./results", eps=None):
+        fname = f"critic_{eps}.h5" if eps else "critic.h5"
+        self.critic.save(f"{dir}/{fname}")
         self.planner.save(dir)
         with open(f"{dir}/agent.pkl", 'wb') as f:
             pickle.dump(self, f)
