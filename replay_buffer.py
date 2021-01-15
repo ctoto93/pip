@@ -33,9 +33,7 @@ class ReplayBuffer:
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
 
-    def sample(self):
-        ind = np.random.randint(0, self.size, size=self.batch_size)
-
+    def get_by_index(self, ind):
         return (
             self.state[ind],
             self.action[ind],
@@ -43,3 +41,19 @@ class ReplayBuffer:
             self.reward[ind],
             self.not_done[ind]
         )
+
+    def sample(self):
+        ind = np.random.randint(0, self.size, size=self.batch_size)
+
+        return self.get_by_index(ind)
+
+    def boltzmann_sampling(self, beta):
+        r_min = self.cum_reward[:self.size].min()
+        r_max = self.cum_reward[:self.size].max()
+        r = self.cum_reward[:self.size].flatten()
+        values = np.exp(beta * (r - r_min)/(r_max - r_min))
+        total = values.sum()
+        weight = values/total
+        ind = np.random.choice(np.arange(self.size), self.batch_size, p=weight)
+
+        return self.get_by_index(ind)

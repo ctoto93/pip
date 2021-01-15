@@ -32,8 +32,8 @@ class PIP:
 
         return self.behavior_policy(state)
 
-    def train(self, replay_buffer):
-        state, action, next_state, reward, _ = replay_buffer.sample()
+    def train(self, state_transition):
+        state, action, next_state, reward, _ = state_transition
         next_state_value = self.critic(next_state).numpy()
         v_target = reward + self.gamma * next_state_value
         critic_loss = self.critic.fit(x=state, y=v_target, verbose=0).history["loss"][0]

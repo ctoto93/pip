@@ -110,6 +110,7 @@ def init_arguments():
 	parser.add_argument('--rbf', nargs='*', type=int)               	   # Radial basis units applied to networks
 	parser.add_argument('--rbf_space', nargs='*', type=int)
 	parser.add_argument('--rbf_concatenate', default=False, type=bool)
+	parser.add_argument('--start_train_wm', default=10, type=int)
 
 	args = parser.parse_args()
 	return args
@@ -230,8 +231,14 @@ if __name__ == "__main__":
 
 		for row in episode_buffer:
 			replay_buffer.add(*row, episode_reward)
-			
-		agent.train(replay_buffer)
+
+		state_transition = replay_buffer.sample()
+		agent.train(state_transition)
+
+		# Train world model after n episodes
+		if t >= args.start_train_wm:
+			state_transition_wm = replay_buffer.boltzmann_sampling(1)
+			world_model.train(state_transition_wm)
 
 		# Evaluate and save data frames
 		if (t + 1) % args.eval_freq == 0:

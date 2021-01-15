@@ -30,6 +30,12 @@ class WorldModel:
         state = scaler_out[:,:n_obs]
         return state
 
+    def train(self, state_transition):
+        state, action, next_state, _, _ = state_transition
+        state_action = np.concatenate((state, action), axis=1)
+        loss = self.model.fit(x=state_action, y=next_state, verbose=0).history["loss"][0]
+        return loss
+
     def save(self, dir):
         self.model.save(f"{dir}/world_model/model.h5")
         with open(f"{dir}/world_model/scaler.pkl", 'wb') as f:
@@ -37,7 +43,8 @@ class WorldModel:
 
     @staticmethod
     def load(dir):
-        model = models.load_model(f"{dir}/world_model/model.h5", compile=False)
+        model = models.load_model(f"{dir}/world_model/model.h5")
+
         with open(f"{dir}/world_model/scaler.pkl", 'rb') as f:
             scaler = pickle.load(f)
 
