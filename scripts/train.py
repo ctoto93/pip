@@ -204,6 +204,8 @@ if __name__ == "__main__":
 		state, done = env.reset(), False
 		episode_reward = 0
 
+		episode_buffer = []
+
 		while not done:
 			if t < args.start_episodes:
 				action = env.action_space.sample()
@@ -213,27 +215,22 @@ if __name__ == "__main__":
 			next_state, reward, done, _ = env.step(action.reshape(-1))
 			done_bool = 0
 
+			state_temp = state
+			next_state_temp = next_state
 			if transformer:
-				replay_buffer.add(
-					transformer.transform(state.reshape(1,-1)),
-					action,
-					transformer.transform(next_state.reshape(1,-1)),
-					reward,
-					done
-				)
-			else:
-				replay_buffer.add(
-					state.reshape(1,-1),
-					action,
-					next_state.reshape(1,-1),
-					reward,
-					done
-				)
+				state_temp = transformer.transform(state.reshape(1,-1))
+				next_state_temp = transformer.transform(next_state.reshape(1,-1))
+
+			episode_buffer.append([state_temp, action, next_state_temp, reward, done])
 
 			state = next_state
 			episode_reward += reward
 
 		train_rewards.append(episode_reward)
+
+		for row in episode_buffer:
+			replay_buffer.add(*row, episode_reward)
+			
 		agent.train(replay_buffer)
 
 		# Evaluate and save data frames

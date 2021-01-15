@@ -13,14 +13,16 @@ class ReplayBuffer:
         self.action = np.zeros((max_size, action_dim))
         self.next_state = np.zeros((max_size, state_dim))
         self.reward = np.zeros((max_size, 1))
+        self.cum_reward = np.zeros((max_size, 1))
         self.not_done = np.zeros((max_size, 1))
 
-    def add(self, state, action, next_state, reward, done):
+    def add(self, state, action, next_state, reward, done, cum_reward=0):
         self.state[self.ptr] = state
         self.action[self.ptr] = action
         self.next_state[self.ptr] = next_state
         self.reward[self.ptr] = reward
         self.not_done[self.ptr] = 1. - done
+        self.cum_reward[self.ptr] = cum_reward
 
         if self.dump_dir:
             with open(f"{self.dump_dir}/replay_buffer.csv", mode='a') as csv_file:
